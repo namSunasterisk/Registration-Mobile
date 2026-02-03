@@ -1,9 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { request } from "node:http";
+import fs from "fs";
+import path from "path";
 
 test.describe.configure({ mode: "serial" });
 
 const randomEmail = `user${Math.floor(Math.random() * 10000)}@example.com`;
+const password = "SecurePass123!";
 let savedIDNumber: number;
 let registrationKey: string;
 
@@ -59,8 +62,8 @@ test("API Set Password", async ({ request }) => {
   const response = await request.post("api/cruint/auth/register/password", {
     data: {
       email: randomEmail,
-      password: "SecurePass123!",
-      confirm_password: "SecurePass123!",
+      password,
+      confirm_password: password,
       registration_key: registrationKey,
     },
   });
@@ -124,3 +127,28 @@ test("API Fill Profile", async ({ request }) => {
 
 console.log("Tested registration for email:", randomEmail);
 console.log("Password: SecurePass123!");
+
+async function appendCredentialsTable(email: string, pwd: string) {
+  try {
+    const outDir = path.resolve(process.cwd(), "test-results");
+    const outFile = path.join(outDir, "registrations.md");
+    await fs.promises.mkdir(outDir, { recursive: true });
+    const header = "| Email | Password |\n|---|---|\n";
+    const row = `| ${email} | ${pwd} |\n`;
+    const exists = await fs.promises
+      .access(outFile, fs.constants.F_OK)
+      .then(() => true)
+      .catch(() => false);
+    if (!exists) {
+      await fs.promises.writeFile(outFile, header + row, "utf8");
+    } else {
+      await fs.promises.appendFile(outFile, row, "utf8");
+    }
+  } catch (err) {
+    console.error("Failed to write credentials:", err);
+  }
+}
+
+test.afterAll(async () => {
+  await appendCredentialsTable(randomEmail, password);
+});
